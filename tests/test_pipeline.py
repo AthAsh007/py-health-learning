@@ -11,6 +11,35 @@ def test_synthetic_patients_shape_and_target():
     assert df["readmitted"].isin([0, 1]).all()
 
 
+def test_synthetic_vitals_is_longitudinal():
+    df = data.make_synthetic_vitals(n_patients=20, n_days=7, seed=0)
+    assert len(df) == 20 * 7
+    # Each patient has exactly n_days rows and a single, constant outcome.
+    per_patient = df.groupby("patient_id")
+    assert (per_patient.size() == 7).all()
+    assert (per_patient["deteriorated"].nunique() == 1).all()
+    assert df["deteriorated"].isin([0, 1]).all()
+
+
+def test_synthetic_labs_regression_target():
+    df = data.make_synthetic_labs(n=150, seed=0)
+    assert len(df) == 150
+    assert "length_of_stay" in df.columns
+    # Continuous target within the clipped range.
+    assert df["length_of_stay"].between(1, 60).all()
+
+
+def test_regressor_trains_on_labs():
+    df = data.make_synthetic_labs(n=400, seed=0)
+    X_train, X_test, y_train, y_test, _ = preprocessing.split_and_scale(
+        df, target="length_of_stay", stratify=False
+    )
+    model = models.train_regressor(X_train, y_train)
+    report = evaluation.evaluate_regressor(model, X_test, y_test)
+    # Length of stay is a (noisy) linear function of the labs, so R² beats 0.
+    assert report["r2"] > 0.3
+
+
 def test_clean_removes_impossible_values():
     raw = data.make_synthetic_patients(n=200, seed=0)
     clean = preprocessing.clean_patient_table(raw)

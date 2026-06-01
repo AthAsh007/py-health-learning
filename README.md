@@ -80,6 +80,34 @@ python examples/02_train_diabetes_classifier.py
 | `examples/02_train_diabetes_classifier.py` | Full train → evaluate loop (logistic vs. random forest) |
 | `examples/03_evaluate_and_plot.py` | Save ROC curve, confusion matrix and feature-importance plots |
 | `examples/04_clean_synthetic_pipeline.py` | Clean messy synthetic data, then cross-validate a readmission model |
+| `examples/05_regression_diabetes_progression.py` | Regression path: predict continuous disease progression (MAE + R²) |
+| `examples/06_vitals_feature_engineering.py` | Aggregate longitudinal vitals (mean / last / trend) → classify deterioration |
+| `examples/07_labs_length_of_stay_regression.py` | Predict hospital length-of-stay from a synthetic lab panel |
+| `examples/08_export_datasets_to_csv.py` | Write the synthetic datasets to `data/samples/*.csv` |
+
+---
+
+## The datasets
+
+All loaders live in `pyhealth_learning.data`. Real datasets come bundled with
+scikit-learn (no download); synthetic ones are generated reproducibly and
+contain **no real patient data**.
+
+| Loader | Kind | Target | Shape |
+| --- | --- | --- | --- |
+| `load_breast_cancer_classification()` | real (sklearn) | `malignant` (binary) | wide tabular |
+| `load_diabetes_classification()` | real (sklearn) | `diabetes` (binary) | wide tabular |
+| `load_diabetes_regression()` | real (sklearn) | `progression` (continuous) | wide tabular |
+| `make_synthetic_patients()` | synthetic | `readmitted` (binary) | messy tabular (missingness + outliers) |
+| `make_synthetic_vitals()` | synthetic | `deteriorated` (binary) | **longitudinal** (row per patient-day) |
+| `make_synthetic_labs()` | synthetic | `length_of_stay` (continuous) | lab panel |
+
+Small CSV previews of the three synthetic datasets are committed under
+[`data/samples/`](data/samples). Regenerate full-size copies any time with:
+
+```bash
+python data/generate_samples.py        # or: python examples/08_export_datasets_to_csv.py
+```
 
 ---
 

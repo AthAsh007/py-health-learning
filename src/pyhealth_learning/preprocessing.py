@@ -67,8 +67,16 @@ def split_and_scale(
     test_size: float = 0.25,
     seed: int = 42,
     scale: bool = True,
+    stratify: bool = True,
 ):
     """Encode, split into train/test and standardize the features.
+
+    Parameters
+    ----------
+    stratify:
+        Keep the class balance equal across train/test. Leave this on for
+        classification; set it to ``False`` for regression (a continuous
+        target can't be stratified).
 
     Returns
     -------
@@ -82,7 +90,11 @@ def split_and_scale(
     feature_names = X.columns.tolist()
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X.values, y, test_size=test_size, random_state=seed, stratify=y
+        X.values,
+        y,
+        test_size=test_size,
+        random_state=seed,
+        stratify=y if stratify else None,
     )
 
     scaler = None
