@@ -84,6 +84,9 @@ python examples/02_train_diabetes_classifier.py
 | `examples/06_vitals_feature_engineering.py` | Aggregate longitudinal vitals (mean / last / trend) → classify deterioration |
 | `examples/07_labs_length_of_stay_regression.py` | Predict hospital length-of-stay from a synthetic lab panel |
 | `examples/08_export_datasets_to_csv.py` | Write the synthetic datasets to `data/samples/*.csv` |
+| `examples/09_data_leakage_demo.py` | Leaky vs leak-free preprocessing, and the AUC gap it causes |
+| `examples/10_cross_validated_pipeline.py` | Compare models with leak-free `Pipeline` cross-validation |
+| `examples/11_threshold_tuning.py` | Tune the decision threshold for a high-recall screening use-case |
 
 ---
 
@@ -123,6 +126,22 @@ X_train, X_test, y_train, y_test, meta = preprocessing.split_and_scale(
 model = models.train_classifier(X_train, y_train, kind="forest")
 print(evaluation.evaluate_classifier(model, X_test, y_test)["summary"])
 ```
+
+`split_and_scale` fits its imputer and scaler on the **training fold only**, so
+the test split never influences its own preprocessing.
+
+### Avoiding data leakage
+
+For cross-validation, wrap preprocessing in a `Pipeline` so it's refit on every
+fold's training data — feed it the *raw* (un-imputed, un-scaled) features:
+
+```python
+pipe = models.make_classifier_pipeline(kind="forest")   # impute -> scale -> model
+scores = models.cross_validate(pipe, X_raw, y, cv=5, scoring="roc_auc")
+```
+
+See `examples/09_data_leakage_demo.py` for a side-by-side of the leaky vs
+leak-free way (and why it matters).
 
 ---
 
