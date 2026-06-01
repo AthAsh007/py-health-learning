@@ -48,6 +48,41 @@ def test_clean_removes_impossible_values():
     assert clean["bmi"].min() >= 10
 
 
+def test_clean_without_impute_keeps_numeric_gaps():
+    raw = data.make_synthetic_patients(n=300, seed=0)
+    clean = preprocessing.clean_patient_table(raw, impute=False)
+    # Row-local fixes still happen: impossible values clipped, categoricals filled.
+    assert clean["systolic_bp"].max(skipna=True) <= 250
+    assert clean.select_dtypes(include="object").isna().sum().sum() == 0
+    # But numeric gaps are deliberately left for a train-fit imputer.
+    assert clean[["bmi", "glucose"]].isna().sum().sum() > 0
+
+
+def test_split_and_scale_imputes_on_train_only():
+    raw = data.make_synthetic_patients(n=400, seed=0)
+    clean = preprocessing.clean_patient_table(raw, impute=False)
+    X_train, X_test, y_train, y_test, meta = preprocessing.split_and_scale(
+        clean, target="readmitted"
+    )
+    # No NaNs survive, and the fitted imputer is returned for reuse on new data.
+    assert not np.isnan(X_train).any()
+    assert not np.isnan(X_test).any()
+    assert meta["imputer"] is not None
+
+
+def test_pipeline_cross_validates_with_missing_data():
+    raw = data.make_synthetic_patients(n=500, seed=0)
+    clean = preprocessing.clean_patient_table(raw, impute=False)
+    encoded = preprocessing.encode_categoricals(clean)
+    X = encoded.drop(columns=["readmitted"]).values
+    y = encoded["readmitted"].values
+    assert np.isnan(X).any()  # the pipeline must handle these per fold
+    pipe = models.make_classifier_pipeline(kind="logistic")
+    scores = models.cross_validate(pipe, X, y, cv=3, scoring="roc_auc")
+    assert len(scores) == 3
+    assert scores.mean() > 0.6
+
+
 def test_classifier_trains_and_scores():
     df = data.load_diabetes_classification()
     X_train, X_test, y_train, y_test, _ = preprocessing.split_and_scale(

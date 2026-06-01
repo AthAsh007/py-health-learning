@@ -2,7 +2,8 @@
 Example 04 — Clean a messy synthetic patient table, then predict readmission.
 
 Shows the full tabular workflow: cleaning impossible values + missingness,
-one-hot encoding, training and cross-validation.
+one-hot encoding, then training and cross-validating *without data leakage*
+(imputation/scaling are fit on the training fold only).
 
     python examples/04_clean_synthetic_pipeline.py
 """
@@ -54,20 +55,26 @@ def main() -> None:
         "was corrected."
     )
 
-    utils.section("Train readmission model")
+    utils.section("Train readmission model (leak-free)")
+    # Re-clean WITHOUT the median fill, so the only statistical step left —
+    # imputation — happens inside split_and_scale, fit on the training fold only.
+    model_input = preprocessing.clean_patient_table(raw, impute=False)
     X_train, X_test, y_train, y_test, meta = preprocessing.split_and_scale(
-        clean, target="readmitted"
+        model_input, target="readmitted"  # impute=True by default, fit on train
     )
     model = models.train_classifier(X_train, y_train, kind="forest")
     print(evaluation.evaluate_classifier(model, X_test, y_test)["summary"])
 
-    utils.section("5-fold cross-validated ROC AUC")
-    import numpy as np
-
-    X_all = np.vstack([X_train, X_test])
-    y_all = np.concatenate([y_train, y_test])
-    scores = models.cross_validate(model, X_all, y_all, cv=5, scoring="roc_auc")
+    utils.section("5-fold cross-validated ROC AUC (leak-free)")
+    # A Pipeline refits impute + scale on each fold's training data, so the
+    # held-out fold never influences its own preprocessing.
+    encoded = preprocessing.encode_categoricals(model_input)
+    X_all = encoded.drop(columns=["readmitted"]).values
+    y_all = encoded["readmitted"].values
+    pipe = models.make_classifier_pipeline(kind="forest")
+    scores = models.cross_validate(pipe, X_all, y_all, cv=5, scoring="roc_auc")
     print(f"AUC: {scores.mean():.3f} +/- {scores.std():.3f}")
+    print("(See examples/09_data_leakage_demo.py for why this matters.)")
 
 
 if __name__ == "__main__":
